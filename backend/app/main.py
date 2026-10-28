@@ -7,7 +7,7 @@ from app.routers import chat, me, threads
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="Agentic RAG Masterclass API")
+    app = FastAPI(title="Agentic RAG Masterclass API", version="0.1.0")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
