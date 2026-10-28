@@ -36,3 +36,18 @@ class MessageOut(BaseModel):
 
 class ChatRequest(BaseModel):
     content: str = Field(min_length=1, max_length=20000)
+
+
+DocumentStatus = Literal["pending", "processing", "completed", "failed"]
+
+
+class DocumentOut(BaseModel):
+    id: str
+    filename: str
+    mime_type: str
+    size_bytes: int
+    status: DocumentStatus
+    error: str | None
+    chunk_count: int
+    created_at: datetime
+    updated_at: datetime

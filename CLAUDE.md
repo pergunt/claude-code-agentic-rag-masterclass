@@ -23,6 +23,7 @@ If services may already be running (another terminal or another Claude session s
 - Requires `backend/.env` and `frontend/.env` (copy from the `.env.example` files)
 - Creates `backend/venv` and runs `npm install` on first run if they're missing
 - Fails fast if port 8000 or 5173 is busy. The frontend must stay on 5173 because backend CORS allows only `FRONTEND_ORIGIN`
+- Ingestion runs in-process via FastAPI BackgroundTasks (no worker); needs `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`
 - Backend health check: `curl localhost:8000/health` → `{"status":"ok"}`
 - When adding a new service (e.g. a worker), add it to `scripts/start-services.sh` and to this table
 
@@ -35,6 +36,7 @@ If services may already be running (another terminal or another Claude session s
 - Use Supabase Realtime for ingestion status updates
 - Module 2+ uses stateless completions - store and send chat history yourself
 - Ingestion is manual file upload only - no connectors or automated pipelines
+- Service-role client only in `app/services/ingestion.py` (background work); request handlers use the user's JWT.
 - Never read, print, source or edit `backend/.env` / `frontend/.env` (denied in `.claude/settings.json`). Check whether a key is set via `get_settings()` and print only `bool(...)`. Override a setting for one run with an env var on the command (env beats `.env`). Get curl test tokens from `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` (added in plan 2.1). Use the Read/Edit tools for `.env.example`.
 
 ## Planning
@@ -57,7 +59,7 @@ If services may already be running (another terminal or another Claude session s
 
 ## Development Flow
 1. **Plan** - Create a detailed plan and save it to `.agent/plans/`
-2. **Build** - Delegate the implementation to the `coder` subagent (`.claude/agents/coder.md`, Sonnet). Pass it the plan path, and say which tasks to do if the build is split. Don't write the feature code in the main session.
+2. **Build** - Delegate the implementation to the `coder` subagent (`.claude/agents/coder.md`, Sonnet). Pass it the plan path, and say which tasks to do if the build is split. First sort the plan's tasks into dependency waves: independent tasks that touch different files run as parallel `coder` agents, and everything else runs in a valid order (see `/build`). Don't write the feature code in the main session.
 3. **Review** - The main model (Opus) reviews what the coder did. Read the diff against the plan, check for missed tasks, deviations, bugs and convention breaks, then fix small issues directly or send them back to `coder` with precise instructions
 4. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
 5. **Iterate** - Fix any issues found during validation (via `coder` for anything non-trivial), then review again

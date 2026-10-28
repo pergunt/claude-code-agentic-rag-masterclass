@@ -5,7 +5,6 @@ import { Composer } from '@/components/chat/Composer'
 import type { ChatMessage } from '@/components/chat/MessageBubble'
 import { MessageList } from '@/components/chat/MessageList'
 import { ThreadSidebar } from '@/components/chat/ThreadSidebar'
-import { useAuth } from '@/context/AuthProvider'
 import { api, streamMessage, type ChatEvent, type Thread } from '@/lib/api'
 
 function errorMessage(error: unknown): string {
@@ -19,7 +18,6 @@ function isAbort(error: unknown): boolean {
 export function ChatPage() {
   const { threadId } = useParams()
   const navigate = useNavigate()
-  const { session, signOut } = useAuth()
 
   const [threads, setThreads] = useState<Thread[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -145,16 +143,14 @@ export function ChatPage() {
   }
 
   return (
-    <div className="flex h-svh">
+    <div className="flex h-full">
       <ThreadSidebar
         threads={threads}
         activeId={threadId}
-        email={session?.user.email}
         onSelect={(id) => navigate(`/t/${id}`)}
         onNew={() => navigate('/')}
         onRename={handleRename}
         onDelete={handleDelete}
-        onSignOut={signOut}
       />
       <main className="flex min-w-0 flex-1 flex-col">
         <MessageList messages={messages} streaming={streaming} searching={searching} />

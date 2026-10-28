@@ -23,6 +23,11 @@ if [[ ! -x "$ROOT/backend/venv/bin/uvicorn" ]]; then
   log "creating backend venv and installing requirements"
   python3 -m venv "$ROOT/backend/venv"
   "$ROOT/backend/venv/bin/pip" install -q -r "$ROOT/backend/requirements.txt"
+  touch "$ROOT/backend/venv/.requirements-installed"
+elif [[ ! -f "$ROOT/backend/venv/.requirements-installed" || "$ROOT/backend/requirements.txt" -nt "$ROOT/backend/venv/.requirements-installed" ]]; then
+  log "requirements.txt changed, updating backend dependencies"
+  "$ROOT/backend/venv/bin/pip" install -q -r "$ROOT/backend/requirements.txt"
+  touch "$ROOT/backend/venv/.requirements-installed"
 fi
 
 if [[ ! -d "$ROOT/frontend/node_modules" ]]; then

@@ -16,8 +16,17 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""  # background ingestion only (app/services/ingestion.py)
 
     openai_api_key: str = ""  # embeddings (2.2); chat uses LLM_*
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536  # must match vector(1536) in the chunks table
+
+    chunk_size: int = 1500  # characters
+    chunk_overlap: int = 200
+    max_upload_bytes: int = 5 * 1024 * 1024
+    # Dev/test only: sleep before `processing` and before `completed` so a browser test can see each status.
+    ingestion_stage_delay_seconds: float = 0
 
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_api_key: str = ""

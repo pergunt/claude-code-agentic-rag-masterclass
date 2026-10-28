@@ -17,6 +17,24 @@ export type Message = {
   created_at: string
 }
 
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export type DocumentRow = {
+  id: string
+  filename: string
+  mime_type: string
+  size_bytes: number
+  status: DocumentStatus
+  error: string | null
+  chunk_count: number
+  created_at: string
+  updated_at: string
+}
+
+// Mirror the backend limits (MAX_UPLOAD_BYTES and SUPPORTED_TYPES) so the UI can reject early.
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+export const ACCEPTED_EXTENSIONS = ['.txt', '.md', '.markdown']
+
 export type ChatEvent =
   | { type: 'delta'; delta: string }
   | { type: 'tool'; name: string; status: 'searching' | 'completed' }
@@ -44,7 +62,8 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       headers: {
-        'Content-Type': 'application/json',
+        // For FormData the browser must set the multipart Content-Type (with its boundary) itself.
+        ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(await authHeaders()),
         ...init.headers,
       },
@@ -85,6 +104,15 @@ export const api = {
     await request(`/api/threads/${id}`, { method: 'DELETE' })
   },
   listMessages: (threadId: string) => requestJson<Message[]>(`/api/threads/${threadId}/messages`),
+  listDocuments: () => requestJson<DocumentRow[]>('/api/documents'),
+  uploadDocument: (file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    return requestJson<DocumentRow>('/api/documents', { method: 'POST', body })
+  },
+  deleteDocument: async (id: string) => {
+    await request(`/api/documents/${id}`, { method: 'DELETE' })
+  },
 }
 
 /**

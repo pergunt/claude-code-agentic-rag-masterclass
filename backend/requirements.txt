@@ -5,3 +5,4 @@ supabase
 openai
 langsmith
 python-dotenv
+python-multipart

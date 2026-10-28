@@ -1,33 +1,28 @@
-import { Check, LogOut, Pencil, SquarePen, Trash2, X } from 'lucide-react'
+import { Check, Pencil, SquarePen, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import type { Thread } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 type Props = {
   threads: Thread[]
   activeId: string | undefined
-  email: string | undefined
   onSelect: (id: string) => void
   onNew: () => void
   onRename: (id: string, title: string) => void
   onDelete: (id: string) => void
-  onSignOut: () => void
 }
 
 export function ThreadSidebar({
   threads,
   activeId,
-  email,
   onSelect,
   onNew,
   onRename,
   onDelete,
-  onSignOut,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -116,13 +111,6 @@ export function ThreadSidebar({
           )}
         </nav>
       </ScrollArea>
-      <Separator />
-      <div className="flex items-center gap-2 p-3">
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{email}</span>
-        <Button size="icon-sm" variant="ghost" aria-label="Sign out" onClick={onSignOut}>
-          <LogOut />
-        </Button>
-      </div>
     </aside>
   )
 }
