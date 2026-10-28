@@ -6,3 +6,4 @@ openai
 langsmith
 python-dotenv
 python-multipart
+pytest

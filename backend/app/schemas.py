@@ -26,12 +26,20 @@ class ThreadUpdate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
 
 
+class SourceOut(BaseModel):
+    document_id: str
+    filename: str
+    chunk_index: int
+    similarity: float
+
+
 class MessageOut(BaseModel):
     id: str
     thread_id: str
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime
+    sources: list[SourceOut] | None = None
 
 
 class ChatRequest(BaseModel):

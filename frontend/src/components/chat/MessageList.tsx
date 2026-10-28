@@ -8,9 +8,10 @@ type Props = {
   messages: ChatMessage[]
   streaming: boolean
   searching: boolean
+  searchQuery?: string | null
 }
 
-export function MessageList({ messages, streaming, searching }: Props) {
+export function MessageList({ messages, streaming, searching, searchQuery }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function MessageList({ messages, streaming, searching }: Props) {
           ))}
         {searching && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Search className="size-4 animate-pulse" /> Searching documents…
+            <Search className="size-4 animate-pulse" /> {searchQuery ? `Searching documents for “${searchQuery}”…` : 'Searching documents…'}
           </p>
         )}
         {waitingForFirstToken && !searching && (

@@ -8,5 +8,7 @@ Test users in the dev Supabase project (created 2026-10-28). All use the passwor
 Email confirmation is disabled in the dev project, so any new `rag-test-<x>@example.com` + `TestPass123!` signs up instantly. Signing up an existing email returns "User already registered", so use sign-in for the accounts above.
 
 - Use these for browser auth testing (Playwright / Chrome MCP) and API token tests. Don't invent other credentials.
+- `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` signs in A and B and exports `TOKEN_A`/`TOKEN_B`/`USER_A_ID`/`USER_B_ID` for curl. Scripts take `--as <email>` (`check_retrieval`, `smoke_chat`).
+- Test docs (2.3): A has `velmora-station.md` (several duplicate uploads plus a `test_file.txt`), B has `b-recipes.md` (from `test-data/ingestion/`).
 - If you need a new user, follow the same email pattern and password, and add it to this file.
 - If sign-in fails, the accounts may have been deleted or email confirmation re-enabled, so check Supabase → Authentication.

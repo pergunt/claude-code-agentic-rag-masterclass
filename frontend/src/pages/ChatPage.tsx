@@ -23,6 +23,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [streaming, setStreaming] = useState(false)
   const [searching, setSearching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // A thread created by sending the first message already has its messages in state.
   const skipLoadFor = useRef<string | null>(null)
@@ -99,9 +100,11 @@ export function ChatPage() {
             break
           case 'tool':
             setSearching(event.status === 'searching')
+            if (event.status === 'searching') setSearchQuery(event.query ?? null)
             break
           case 'done':
-            updateAssistant(assistantId, (m) => ({ ...m, content: event.text }))
+            // Only the sources the answer cites (filtered server-side), not everything retrieved.
+            updateAssistant(assistantId, (m) => ({ ...m, content: event.text, sources: event.sources }))
             break
           case 'error':
             updateAssistant(assistantId, (m) => ({ ...m, content: event.message, error: true }))
@@ -118,6 +121,7 @@ export function ChatPage() {
       abortRef.current = null
       setStreaming(false)
       setSearching(false)
+      setSearchQuery(null)
     }
   }
 
@@ -153,7 +157,12 @@ export function ChatPage() {
         onDelete={handleDelete}
       />
       <main className="flex min-w-0 flex-1 flex-col">
-        <MessageList messages={messages} streaming={streaming} searching={searching} />
+        <MessageList
+          messages={messages}
+          streaming={streaming}
+          searching={searching}
+          searchQuery={searchQuery}
+        />
         {error && (
           <p className="mx-auto w-full max-w-3xl px-4 text-sm text-destructive">{error}</p>
         )}

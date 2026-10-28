@@ -9,11 +9,19 @@ export type Thread = {
   updated_at: string
 }
 
+export type Source = {
+  document_id: string
+  filename: string
+  chunk_index: number
+  similarity: number
+}
+
 export type Message = {
   id: string
   thread_id: string
   role: 'user' | 'assistant'
   content: string
+  sources?: Source[] | null
   created_at: string
 }
 
@@ -37,8 +45,14 @@ export const ACCEPTED_EXTENSIONS = ['.txt', '.md', '.markdown']
 
 export type ChatEvent =
   | { type: 'delta'; delta: string }
-  | { type: 'tool'; name: string; status: 'searching' | 'completed' }
-  | { type: 'done'; text: string }
+  | {
+      type: 'tool'
+      name: string
+      status: 'searching' | 'completed' | 'error'
+      query?: string | null
+      sources?: Source[]
+    }
+  | { type: 'done'; text: string; sources?: Source[] }
   | { type: 'error'; message: string }
 
 export class ApiError extends Error {

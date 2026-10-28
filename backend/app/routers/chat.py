@@ -15,6 +15,7 @@ from app.routers.threads import fetch_thread
 from app.schemas import DEFAULT_THREAD_TITLE, ChatRequest
 from app.services import llm
 from app.services.history import load_history
+from app.services.tools import ToolContext
 
 router = APIRouter(prefix="/api/threads", tags=["chat"])
 
@@ -23,9 +24,16 @@ def sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-def save_reply(db: Client, thread: dict, content: str, reply: str) -> None:
+def save_reply(
+    db: Client, thread: dict, content: str, reply: str, sources: list[dict] | None = None
+) -> None:
     db.table("messages").insert(
-        {"thread_id": thread["id"], "role": "assistant", "content": reply}
+        {
+            "thread_id": thread["id"],
+            "role": "assistant",
+            "content": reply,
+            "sources": sources or None,  # display-only citations; never sent back to the model
+        }
     ).execute()
     thread_update = {"updated_at": datetime.now(UTC).isoformat()}
     if thread["title"] == DEFAULT_THREAD_TITLE:
@@ -37,10 +45,12 @@ async def chat_events(
     db: Client, thread: dict, user: CurrentUser, content: str, history: list[dict]
 ) -> AsyncIterator[str]:
     parts: list[str] = []
+    sources: list[dict] = []  # from completed search_documents calls
     ended = False  # set once the stream finished with done/error, i.e. the client didn't stop it
     try:
         events = llm.stream_reply(
             history,
+            ToolContext(db=db, user_id=user.id),  # user-JWT client, so searches run under RLS
             langsmith_extra={
                 "metadata": {
                     "thread_id": thread["id"],
@@ -53,8 +63,12 @@ async def chat_events(
             match event["type"]:
                 case "delta":
                     parts.append(event["delta"])
+                case "tool" if event["status"] == "completed":
+                    sources.extend(event["sources"])
                 case "done":
-                    await run_in_threadpool(save_reply, db, thread, content, event["text"])
+                    await run_in_threadpool(
+                        save_reply, db, thread, content, event["text"], event["sources"]
+                    )
                     ended = True
                 case "error":
                     ended = True
@@ -67,7 +81,10 @@ async def chat_events(
         # Shielded because this runs while the request is being cancelled.
         if not ended and parts:
             with anyio.CancelScope(shield=True):
-                await run_in_threadpool(save_reply, db, thread, content, "".join(parts))
+                reply = "".join(parts)
+                await run_in_threadpool(
+                    save_reply, db, thread, content, reply, llm.cited_sources(sources, reply)
+                )
 
 
 @router.post("/{thread_id}/messages")

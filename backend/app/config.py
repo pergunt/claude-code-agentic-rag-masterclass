@@ -32,10 +32,15 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "openai/gpt-4.1-mini"
 
-    chat_system_prompt: str = ""
+    chat_system_prompt: str = ""  # overrides DEFAULT_SYSTEM_PROMPT (services/prompts.py) when set
     chat_history_max_messages: int = 20
     chat_history_max_chars: int = 24000
     chat_max_output_tokens: int = 4096
+
+    retrieval_top_k: int = 5
+    # Cosine similarity; text-embedding-3-small scores run low (calibration: .env.example).
+    retrieval_min_similarity: float = 0.15
+    agent_max_tool_rounds: int = 3  # tool rounds per turn, then one final call with tool_choice="none"
 
     frontend_origin: str = "http://localhost:5173"
 

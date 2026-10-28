@@ -4,7 +4,7 @@ Chat runs on the **Chat Completions API** via the raw `openai` SDK against any O
 
 ## Env vars (backend/.env)
 - `LLM_BASE_URL` (default `https://openrouter.ai/api/v1`), `LLM_API_KEY`, `LLM_MODEL` (default `openai/gpt-4.1-mini`, pick a tool-calling model for 2.3)
-- `CHAT_SYSTEM_PROMPT` (optional), `CHAT_HISTORY_MAX_MESSAGES=20`, `CHAT_HISTORY_MAX_CHARS=24000`, `CHAT_MAX_OUTPUT_TOKENS=4096`
+- `CHAT_SYSTEM_PROMPT` (optional, overrides the built-in tool-aware prompt in `services/prompts.py`), `CHAT_HISTORY_MAX_MESSAGES=20`, `CHAT_HISTORY_MAX_CHARS=24000`, `CHAT_MAX_OUTPUT_TOKENS=4096`
 - `OPENAI_API_KEY` is only for embeddings (2.2)
 
 ## History window (`app/services/history.py`)

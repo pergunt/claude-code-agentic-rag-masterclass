@@ -65,6 +65,14 @@ If services may already be running (another terminal or another Claude session s
 5. **Iterate** - Fix any issues found during validation (via `coder` for anything non-trivial), then review again
 6. **Shut down** - When testing of a feature or module is finished, stop every process you started: the `start-services.sh` background task (or any manual uvicorn/vite), and close browser sessions (Playwright / Chrome MCP tabs). Then confirm nothing is left running: `lsof -iTCP:8000 -iTCP:5173 -sTCP:LISTEN` prints nothing, and `pgrep -fl "uvicorn app.main|vite"` finds no leftover processes
 
+## Test credentials
+Dev Supabase test users, all with password `TestPass123!` (details in `.claude/memory/dev-test-accounts.md`):
+- `rag-test-a@example.com`: user A, owns `velmora-station.md`
+- `rag-test-b@example.com`: user B, owns `b-recipes.md` (used for the cross-user RLS tests)
+- `rag-test-c@example.com`, `rag-test-d@example.com`: created through the sign-up form
+
+For curl, `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` exports `TOKEN_A`/`TOKEN_B`/`USER_A_ID`/`USER_B_ID`. Scripts take `--as <email>`. New users follow the `rag-test-<x>@example.com` + `TestPass123!` pattern.
+
 ## Progress
 Check PROGRESS.md for current module status. Update it as you complete tasks.
 
