@@ -17,3 +17,8 @@ frontend/dist/
 
 # Browser test artifacts
 .playwright-mcp/
+
+# Validation suite output
+validation-report/
+frontend/test-results/
+frontend/playwright-report/

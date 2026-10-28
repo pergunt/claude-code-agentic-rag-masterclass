@@ -4,7 +4,11 @@
 # start-services.sh, uvicorn backend, or npm/vite frontend belonging to this repo,
 # plus whatever still listens on the backend/frontend ports.
 # Ctrl-C stops the new services, same as start-services.sh.
+# With --stop: run only the kill phase and exit (nothing is started afterwards).
 set -euo pipefail
+
+STOP_ONLY=0
+[[ "${1:-}" == "--stop" ]] && STOP_ONLY=1
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_PORT=8000
@@ -82,6 +86,11 @@ for port in "$BACKEND_PORT" "$FRONTEND_PORT"; do
   [[ -z "$holder" ]] && continue
   die "port $port is held by PID $holder, which isn't part of this app: $(ps -o command= -p "$holder" | cut -c1-100)"
 done
+
+if (( STOP_ONLY )); then
+  log "stopped (--stop: not starting services)"
+  exit 0
+fi
 
 # --- start ---------------------------------------------------------------------
 log "starting services"

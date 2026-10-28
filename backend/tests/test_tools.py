@@ -18,33 +18,33 @@ def hit(filename: str, chunk_index: int, similarity: float) -> ChunkHit:
     )
 
 
-def test_schema_requires_query_without_titles():
+def test_RET_07_schema_requires_query_without_titles():
     params = TOOL_SCHEMAS[0]["function"]["parameters"]
     assert params["required"] == ["query"]
     assert "title" not in params and "title" not in params["properties"]["query"]
 
 
 @pytest.mark.anyio
-async def test_invalid_arguments_do_not_raise():
+async def test_RET_07_invalid_arguments_do_not_raise():
     result = await execute_tool("search_documents", '{"q":1}', CTX)
     assert result.content.startswith("Invalid arguments")
     assert result.error
 
 
 @pytest.mark.anyio
-async def test_malformed_json_does_not_raise():
+async def test_RET_07_malformed_json_does_not_raise():
     result = await execute_tool("search_documents", '{"query": ', CTX)
     assert result.content.startswith("Invalid arguments")
 
 
 @pytest.mark.anyio
-async def test_unknown_tool():
+async def test_RET_07_unknown_tool():
     result = await execute_tool("nope", "{}", CTX)
     assert result.content.startswith("Unknown tool")
 
 
 @pytest.mark.anyio
-async def test_results_are_formatted_with_sources(monkeypatch):
+async def test_RET_07_results_are_formatted_with_sources(monkeypatch):
     async def fake_search(db, query, *, top_k, min_similarity):
         return [hit("a.md", 3, 0.62), hit("b.md", 0, 0.41)]
 
@@ -56,7 +56,7 @@ async def test_results_are_formatted_with_sources(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_empty_results(monkeypatch):
+async def test_RET_07_empty_results(monkeypatch):
     async def fake_search(db, query, *, top_k, min_similarity):
         return []
 
@@ -68,7 +68,7 @@ async def test_empty_results(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_search_failure_is_returned_as_error(monkeypatch):
+async def test_RET_07_search_failure_is_returned_as_error(monkeypatch):
     async def fake_search(db, query, *, top_k, min_similarity):
         raise RuntimeError("embedding API down")
 

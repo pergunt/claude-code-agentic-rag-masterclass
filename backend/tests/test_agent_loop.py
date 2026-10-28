@@ -81,7 +81,7 @@ async def collect(ctx=CTX):
     return [e async for e in llm.stream_reply(HISTORY, ctx)]
 
 
-def test_cited_sources_keeps_only_mentioned_files_deduped():
+def test_RET_07_cited_sources_keeps_only_mentioned_files_deduped():
     def src(filename, chunk, sim):
         return {"document_id": filename, "filename": filename, "chunk_index": chunk, "similarity": sim}
 
@@ -92,7 +92,7 @@ def test_cited_sources_keeps_only_mentioned_files_deduped():
 
 
 @pytest.mark.anyio
-async def test_tool_round_then_answer(monkeypatch, fake_search):
+async def test_RET_07_tool_round_then_answer(monkeypatch, fake_search):
     client = FakeClient(
         [
             [tool_call_chunk("c1", "backup call sign"), text_chunk("", "tool_calls"), USAGE_CHUNK],
@@ -121,7 +121,7 @@ async def test_tool_round_then_answer(monkeypatch, fake_search):
 
 
 @pytest.mark.anyio
-async def test_tool_loop_is_bounded(monkeypatch, fake_search):
+async def test_RET_07_tool_loop_is_bounded(monkeypatch, fake_search):
     always_tool = [tool_call_chunk("c", "again"), text_chunk("", "tool_calls")]
     client = FakeClient([always_tool])
     use_client(monkeypatch, client)
@@ -137,7 +137,7 @@ async def test_tool_loop_is_bounded(monkeypatch, fake_search):
 
 
 @pytest.mark.anyio
-async def test_no_context_sends_no_tools(monkeypatch):
+async def test_RET_07_no_context_sends_no_tools(monkeypatch):
     client = FakeClient([[text_chunk("Hello", "stop")]])
     use_client(monkeypatch, client)
     events = await collect(ctx=None)

@@ -26,6 +26,7 @@ If services may already be running (another terminal or another Claude session s
 - Ingestion runs in-process via FastAPI BackgroundTasks (no worker); needs `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`
 - Backend health check: `curl localhost:8000/health` → `{"status":"ok"}`
 - When adding a new service (e.g. a worker), add it to `scripts/start-services.sh` and to this table
+- Regression suite: `scripts/validate.sh quick|full [--only <ID prefix>] [--restart]`. It reuses running services or starts and stops its own. The report goes to `validation-report/latest/report.md`. `./scripts/restart-services.sh --stop` stops services without restarting them
 
 ## Rules
 - Python backend must use a `venv` virtual environment
@@ -56,12 +57,35 @@ If services may already be running (another terminal or another Claude session s
   - ✅ **Simple** - Single-pass executable, low risk
   - ⚠️ **Medium** - May need iteration, some complexity
   - 🔴 **Complex** - Break into sub-plans before executing
+- Every plan that adds or changes a feature must include a **"Validation suite" task** (see below). A feature isn't done until it's in the suite.
+
+## Validation suite (regression tests, keep it current)
+`validation/FEATURES.md` lists every built feature with a stable ID (`AUTH-02`, `RET-08`, …) and its acceptance criteria. Tests carry the ID in their name, and `scripts/validate.sh` reports PASS/FAIL per ID. Details are in `validation/README.md` and plan `2.4.validation-suite.md`.
+
+When you build a new feature or change an existing one, you **must** update the suite in the same build:
+1. **Catalogue:**
+   - Add a row to `validation/FEATURES.md` for each new user-visible behaviour, API contract or security rule: `| ID | Feature | Source plan | Tier | Acceptance criteria |`.
+   - Use the next free number in the right section, or add a new section prefix for a new area.
+   - Never renumber or reuse IDs. Mark removed features `Retired` instead of deleting them.
+   - If behaviour changes, update the existing row's criteria.
+2. **Tests,** named with the ID (`test_ING_15_…` in pytest, `test('ING-15 … @smoke', …)` in Playwright), at the cheapest tier that proves the criteria:
+   - `unit`: pure logic in `backend/tests/`
+   - `live`: API, RLS or SSE against running services in `backend/tests/live/`, using the `env`/`a`/`b`/`new_thread` fixtures
+   - `llm`: anything that calls the chat model. Mark it `llm` and wrap behaviour assertions in `retry_llm`
+   - `e2e`: browser flows in `frontend/e2e/`. Tag `@smoke` if it's cheap and has no LLM call
+   - Every new table, RPC or storage path gets a cross-user isolation test (user B can't see user A's data).
+3. **Test data:**
+   - Use only the suite users `rag-test-val-a/b@example.com`, which are wiped every run.
+   - Add new fixture files under `test-data/` and seed them in `app/scripts/validation_fixtures.py`.
+4. **Run it:** `scripts/validate.sh full` (or `/validate`). Every ID must be PASS or PASS (flaky), with no UNCOVERED rows, before the feature counts as done.
+   - Don't weaken an existing test or criterion to get a green run. If a change makes an old criterion wrong, update the row deliberately and say so in the build report.
+   - If a new feature breaks an older ID, that's a regression to fix, not a test to delete.
 
 ## Development Flow
 1. **Plan** - Create a detailed plan and save it to `.agent/plans/`
 2. **Build** - Delegate the implementation to the `coder` subagent (`.claude/agents/coder.md`, Sonnet). Pass it the plan path, and say which tasks to do if the build is split. First sort the plan's tasks into dependency waves: independent tasks that touch different files run as parallel `coder` agents, and everything else runs in a valid order (see `/build`). Don't write the feature code in the main session.
 3. **Review** - The main model (Opus) reviews what the coder did. Read the diff against the plan, check for missed tasks, deviations, bugs and convention breaks, then fix small issues directly or send them back to `coder` with precise instructions
-4. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
+4. **Validate** - Run the plan's own checks, then the full regression suite: `/validate full` (`scripts/validate.sh full`). Every ID in the report must be PASS or PASS (flaky), including the new feature's rows (see "Validation suite"). Use browser MCP testing for anything still unscripted
 5. **Iterate** - Fix any issues found during validation (via `coder` for anything non-trivial), then review again
 6. **Shut down** - When testing of a feature or module is finished, stop every process you started: the `start-services.sh` background task (or any manual uvicorn/vite), and close browser sessions (Playwright / Chrome MCP tabs). Then confirm nothing is left running: `lsof -iTCP:8000 -iTCP:5173 -sTCP:LISTEN` prints nothing, and `pgrep -fl "uvicorn app.main|vite"` finds no leftover processes
 
@@ -70,6 +94,7 @@ Dev Supabase test users, all with password `TestPass123!` (details in `.claude/m
 - `rag-test-a@example.com`: user A, owns `velmora-station.md`
 - `rag-test-b@example.com`: user B, owns `b-recipes.md` (used for the cross-user RLS tests)
 - `rag-test-c@example.com`, `rag-test-d@example.com`: created through the sign-up form
+- `rag-test-val-a@example.com`, `rag-test-val-b@example.com`, `rag-test-val-c@example.com` (sign-in flows): owned by the validation suite, wiped and re-seeded every run. Don't use them for manual testing
 
 For curl, `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` exports `TOKEN_A`/`TOKEN_B`/`USER_A_ID`/`USER_B_ID`. Scripts take `--as <email>`. New users follow the `rag-test-<x>@example.com` + `TestPass123!` pattern.
 

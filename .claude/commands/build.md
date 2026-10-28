@@ -35,15 +35,16 @@ The `coder` subagent (Sonnet) writes the code. You (the main model) delegate the
    - every task done, nothing extra, no silent deviations
    - correctness bugs, missing error handling, RLS/auth gaps, secrets in code
    - the code matches the surrounding conventions
+   - the validation suite was updated: new or changed `validation/FEATURES.md` rows, plus ID-named tests for each (see CLAUDE.md "Validation suite"). If the plan forgot this, add the task and give it to a coder; don't skip it
 
    Fix trivial issues directly. Send anything bigger back to the `coder` that owns the file with precise instructions (file, what's wrong, what it should be), then review again.
 
-5. **Validate** - Run the plan's validation steps yourself, including the live and browser tests (Playwright / Chrome MCP). Route failures back through step 4.
+5. **Validate** - Run the plan's validation steps yourself, including the live and browser tests (Playwright / Chrome MCP). Then run the regression suite with `/validate full`. Every ID must be PASS or PASS (flaky) and none UNCOVERED, so new features are covered and old ones aren't broken. Route failures back through step 4.
 
 6. **Report completion** - Summarise:
    - tasks completed
    - files created or modified
-   - test results
+   - test results, including the `/validate full` totals line and the new catalogue IDs
    - review findings and how they were resolved
    - how the work was split into waves (what ran in parallel)
    - any deviations from the plan and why

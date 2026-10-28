@@ -12,7 +12,7 @@ def delta(index=0, id=None, name=None, arguments=None) -> ChoiceDeltaToolCall:
     )
 
 
-def test_arguments_split_across_chunks():
+def test_RET_07_arguments_split_across_chunks():
     acc = ToolCallAccumulator()
     acc.add([delta(id="c1", name="search_documents", arguments='{"qu')])
     for frag in ('ery": "re', "fund po", 'licy"}'):
@@ -22,7 +22,7 @@ def test_arguments_split_across_chunks():
     assert json.loads(call.arguments) == {"query": "refund policy"}
 
 
-def test_interleaved_parallel_calls():
+def test_RET_07_interleaved_parallel_calls():
     acc = ToolCallAccumulator()
     acc.add([delta(0, "a", "search_documents", '{"query":'), delta(1, "b", "search_documents", '{"query":')])
     acc.add([delta(1, arguments='"two"}')])
@@ -32,7 +32,7 @@ def test_interleaved_parallel_calls():
     assert (second.id, json.loads(second.arguments)) == ("b", {"query": "two"})
 
 
-def test_complete_call_in_one_chunk():
+def test_RET_07_complete_call_in_one_chunk():
     acc = ToolCallAccumulator()
     acc.add([delta(0, "x", "search_documents", '{"query": "hi there"}')])
     (call,) = acc.calls()
@@ -40,7 +40,7 @@ def test_complete_call_in_one_chunk():
     assert json.loads(call.arguments) == {"query": "hi there"}
 
 
-def test_id_and_name_only_on_first_chunk():
+def test_RET_07_id_and_name_only_on_first_chunk():
     acc = ToolCallAccumulator()
     acc.add([delta(0, "x", "search_documents", "{")])
     acc.add([delta(0, None, None, "}")])
@@ -48,13 +48,13 @@ def test_id_and_name_only_on_first_chunk():
     assert (call.id, call.name, call.arguments) == ("x", "search_documents", "{}")
 
 
-def test_missing_id_is_synthesized():
+def test_RET_07_missing_id_is_synthesized():
     acc = ToolCallAccumulator()
     acc.add([delta(0, None, "search_documents", "{}")])
     assert acc.calls()[0].id == "call_0"
 
 
-def test_missing_index_continues_last_call():
+def test_RET_07_missing_index_continues_last_call():
     acc = ToolCallAccumulator()
     acc.add([delta(1, "b", "search_documents", "{")])
     # Some providers omit `index`; the OpenAI model requires it, so use a plain namespace.
@@ -63,7 +63,7 @@ def test_missing_index_continues_last_call():
     assert call.arguments == "{}"
 
 
-def test_none_is_falsy():
+def test_RET_07_none_is_falsy():
     acc = ToolCallAccumulator()
     acc.add(None)
     assert not acc
