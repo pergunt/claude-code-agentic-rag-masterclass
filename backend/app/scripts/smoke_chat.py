@@ -3,17 +3,18 @@
 Usage: venv/bin/python -m app.scripts.smoke_chat "question about your docs"
 """
 
+import asyncio
 import sys
 
 from app.services import llm
 
 
-def main() -> None:
+async def main() -> None:
     question = " ".join(sys.argv[1:]) or "What documents do you have access to?"
     conversation_id = llm.create_conversation()
     print(f"conversation: {conversation_id}\n")
     try:
-        for event in llm.stream_reply(conversation_id, question):
+        async for event in llm.stream_reply(conversation_id, question):
             match event["type"]:
                 case "delta":
                     print(event["delta"], end="", flush=True)
@@ -28,4 +29,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

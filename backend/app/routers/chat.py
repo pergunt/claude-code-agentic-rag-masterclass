@@ -1,8 +1,10 @@
 import json
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
+import anyio
 from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from supabase import Client
 
@@ -19,25 +21,46 @@ def sse(event: dict) -> str:
     return f"data: {json.dumps(event)}\n\n"
 
 
-def chat_events(db: Client, thread: dict, user: CurrentUser, content: str) -> Iterator[str]:
+def save_reply(db: Client, thread: dict, content: str, reply: str) -> None:
+    db.table("messages").insert(
+        {"thread_id": thread["id"], "role": "assistant", "content": reply}
+    ).execute()
+    thread_update = {"updated_at": datetime.now(UTC).isoformat()}
+    if thread["title"] == DEFAULT_THREAD_TITLE:
+        thread_update["title"] = content.strip()[:60]
+    db.table("threads").update(thread_update).eq("id", thread["id"]).execute()
+
+
+async def chat_events(
+    db: Client, thread: dict, user: CurrentUser, content: str
+) -> AsyncIterator[str]:
+    parts: list[str] = []
+    ended = False  # set once the stream finished with done/error, i.e. the client didn't stop it
     try:
         events = llm.stream_reply(
             thread["openai_conversation_id"],
             content,
             langsmith_extra={"metadata": {"thread_id": thread["id"], "user_id": user.id}},
         )
-        for event in events:
+        async for event in events:
+            match event["type"]:
+                case "delta":
+                    parts.append(event["delta"])
+                case "done":
+                    await run_in_threadpool(save_reply, db, thread, content, event["text"])
+                    ended = True
+                case "error":
+                    ended = True
             yield sse(event)
-            if event["type"] == "done":
-                db.table("messages").insert(
-                    {"thread_id": thread["id"], "role": "assistant", "content": event["text"]}
-                ).execute()
-                thread_update = {"updated_at": datetime.now(UTC).isoformat()}
-                if thread["title"] == DEFAULT_THREAD_TITLE:
-                    thread_update["title"] = content.strip()[:60]
-                db.table("threads").update(thread_update).eq("id", thread["id"]).execute()
     except Exception as exc:  # surface failures as an SSE event instead of a broken stream
+        ended = True
         yield sse({"type": "error", "message": str(exc)})
+    finally:
+        # The client stopped the reply (Stop button or disconnect): keep what was streamed so far.
+        # Shielded because this runs while the request is being cancelled.
+        if not ended and parts:
+            with anyio.CancelScope(shield=True):
+                await run_in_threadpool(save_reply, db, thread, content, "".join(parts))
 
 
 @router.post("/{thread_id}/messages")

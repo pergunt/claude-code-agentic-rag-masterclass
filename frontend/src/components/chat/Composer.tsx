@@ -1,20 +1,21 @@
-import { Send } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 
 type Props = {
-  disabled: boolean
+  streaming: boolean
   onSend: (content: string) => void
+  onStop: () => void
 }
 
-export function Composer({ disabled, onSend }: Props) {
+export function Composer({ streaming, onSend, onStop }: Props) {
   const [value, setValue] = useState('')
 
   const submit = () => {
     const content = value.trim()
-    if (!content || disabled) return
+    if (!content || streaming) return
     onSend(content)
     setValue('')
   }
@@ -43,9 +44,21 @@ export function Composer({ disabled, onSend }: Props) {
         className="max-h-48 min-h-10 resize-none"
         aria-label="Message"
       />
-      <Button type="submit" size="icon-lg" disabled={disabled || !value.trim()} aria-label="Send">
-        <Send />
-      </Button>
+      {streaming ? (
+        <Button
+          type="button"
+          size="icon-lg"
+          className="bg-destructive text-white hover:bg-destructive/90"
+          aria-label="Stop"
+          onClick={onStop}
+        >
+          <Square className="fill-current" />
+        </Button>
+      ) : (
+        <Button type="submit" size="icon-lg" disabled={!value.trim()} aria-label="Send">
+          <Send />
+        </Button>
+      )}
     </form>
   )
 }

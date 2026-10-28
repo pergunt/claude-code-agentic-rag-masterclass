@@ -39,14 +39,24 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(await authHeaders()),
-      ...init.headers,
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await authHeaders()),
+        ...init.headers,
+      },
+    })
+  } catch (error) {
+    // fetch rejects with a bare TypeError ("Failed to fetch") when the backend is unreachable.
+    // An AbortError (Stop button) is a DOMException and passes through untouched.
+    if (error instanceof TypeError) {
+      throw new ApiError(0, "Can't reach the server. Check that the backend is running.")
+    }
+    throw error
+  }
   if (!response.ok) {
     // The token was rejected (revoked or invalid), so drop the local session and
     // let ProtectedRoute send the user back to /login.

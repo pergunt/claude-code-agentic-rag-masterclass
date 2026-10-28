@@ -12,6 +12,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+function isAbort(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
 export function ChatPage() {
   const { threadId } = useParams()
   const navigate = useNavigate()
@@ -24,18 +28,23 @@ export function ChatPage() {
   const [error, setError] = useState<string | null>(null)
   // A thread created by sending the first message already has its messages in state.
   const skipLoadFor = useRef<string | null>(null)
+  // Aborts the in-flight reply when the user clicks Stop.
+  const abortRef = useRef<AbortController | null>(null)
 
+  // Background refresh the user didn't ask for, so a failure is logged instead of shown.
   const refreshThreads = useCallback(async () => {
     try {
       setThreads(await api.listThreads())
     } catch (e) {
-      setError(errorMessage(e))
+      console.warn('Could not load threads:', errorMessage(e))
     }
   }, [])
 
   useEffect(() => {
     void refreshThreads()
   }, [refreshThreads])
+
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   useEffect(() => {
     if (!threadId) {
@@ -68,6 +77,8 @@ export function ChatPage() {
     setError(null)
     setStreaming(true)
     const assistantId = `assistant-${Date.now()}`
+    const controller = new AbortController()
+    abortRef.current = controller
     try {
       let id = threadId
       if (!id) {
@@ -98,16 +109,21 @@ export function ChatPage() {
             updateAssistant(assistantId, (m) => ({ ...m, content: event.message, error: true }))
             break
         }
-      })
+      }, controller.signal)
       void refreshThreads()
     } catch (e) {
-      setError(errorMessage(e))
+      // Stopped by the user: keep the partial reply; the backend saves it too.
+      if (isAbort(e)) void refreshThreads()
+      else setError(errorMessage(e))
       setMessages((prev) => prev.filter((m) => m.id !== assistantId || m.content))
     } finally {
+      abortRef.current = null
       setStreaming(false)
       setSearching(false)
     }
   }
+
+  const handleStop = () => abortRef.current?.abort()
 
   const handleRename = async (id: string, title: string) => {
     try {
@@ -145,7 +161,7 @@ export function ChatPage() {
         {error && (
           <p className="mx-auto w-full max-w-3xl px-4 text-sm text-destructive">{error}</p>
         )}
-        <Composer disabled={streaming} onSend={handleSend} />
+        <Composer streaming={streaming} onSend={handleSend} onStop={handleStop} />
       </main>
     </div>
   )
