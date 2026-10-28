@@ -24,7 +24,12 @@
         "Bash(sudo:*)",
         "Bash(docker:*)",
         "Bash(rm -rf:*)",
-        "Read(./.env)",
+        "Read(**/.env)",
+        "Read(**/.env.local)",
+        "Edit(**/.env)",
+        "Bash(cat *.env*)",
+        "Bash(grep *.env*)",
+        "Bash(source *.env*)",
         "Read(~/.ssh/**)"
       ],
       "ask": [

@@ -35,11 +35,19 @@ If services may already be running (another terminal or another Claude session s
 - Use Supabase Realtime for ingestion status updates
 - Module 2+ uses stateless completions - store and send chat history yourself
 - Ingestion is manual file upload only - no connectors or automated pipelines
+- Never read, print, source or edit `backend/.env` / `frontend/.env` (denied in `.claude/settings.json`). Check whether a key is set via `get_settings()` and print only `bool(...)`. Override a setting for one run with an env var on the command (env beats `.env`). Get curl test tokens from `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` (added in plan 2.1). Use the Read/Edit tools for `.env.example`.
 
 ## Planning
 - Save all plans to `.agent/plans/` folder
 - Naming convention: `{sequence}.{plan-name}.md` (e.g., `1.auth-setup.md`, `2.document-ingestion.md`)
 - Plans should be detailed enough to execute without ambiguity
+- Plans are executed by the `coder` subagent (Sonnet), not by the model that wrote them, so make every plan as detailed as possible. The coder should never have to guess or re-derive anything. For each task, spell out:
+  - the exact files to create or edit, and the functions, components or SQL objects in them
+  - names, signatures, types, env vars, and API/event shapes, plus code snippets wherever the shape matters
+  - the expected behaviour, including edge cases and error handling
+  - the conventions to follow (point to an existing file to copy)
+  - what is out of scope
+  - the validation commands and their expected output
 - Each task in the plan must include at least one validation test to verify it works
 - Assess complexity and single-pass feasibility - can an agent realistically complete this in one go?
 - Include a complexity indicator at the top of each plan:
@@ -49,10 +57,11 @@ If services may already be running (another terminal or another Claude session s
 
 ## Development Flow
 1. **Plan** - Create a detailed plan and save it to `.agent/plans/`
-2. **Build** - Execute the plan to implement the feature
-3. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
-4. **Iterate** - Fix any issues found during validation
-5. **Shut down** - When testing of a feature or module is finished, stop every process you started: the `start-services.sh` background task (or any manual uvicorn/vite), and close browser sessions (Playwright / Chrome MCP tabs). Then confirm nothing is left running: `lsof -iTCP:8000 -iTCP:5173 -sTCP:LISTEN` prints nothing, and `pgrep -fl "uvicorn app.main|vite"` finds no leftover processes
+2. **Build** - Delegate the implementation to the `coder` subagent (`.claude/agents/coder.md`, Sonnet). Pass it the plan path, and say which tasks to do if the build is split. Don't write the feature code in the main session.
+3. **Review** - The main model (Opus) reviews what the coder did. Read the diff against the plan, check for missed tasks, deviations, bugs and convention breaks, then fix small issues directly or send them back to `coder` with precise instructions
+4. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
+5. **Iterate** - Fix any issues found during validation (via `coder` for anything non-trivial), then review again
+6. **Shut down** - When testing of a feature or module is finished, stop every process you started: the `start-services.sh` background task (or any manual uvicorn/vite), and close browser sessions (Playwright / Chrome MCP tabs). Then confirm nothing is left running: `lsof -iTCP:8000 -iTCP:5173 -sTCP:LISTEN` prints nothing, and `pgrep -fl "uvicorn app.main|vite"` finds no leftover processes
 
 ## Progress
 Check PROGRESS.md for current module status. Update it as you complete tasks.
