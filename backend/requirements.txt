@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+supabase
+openai
+langsmith
+python-dotenv
