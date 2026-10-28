@@ -9,10 +9,12 @@ from fastapi.responses import StreamingResponse
 from supabase import Client
 
 from app.auth import CurrentUser, get_current_user
+from app.config import get_settings
 from app.db import create_user_client
 from app.routers.threads import fetch_thread
 from app.schemas import DEFAULT_THREAD_TITLE, ChatRequest
 from app.services import llm
+from app.services.history import load_history
 
 router = APIRouter(prefix="/api/threads", tags=["chat"])
 
@@ -32,15 +34,20 @@ def save_reply(db: Client, thread: dict, content: str, reply: str) -> None:
 
 
 async def chat_events(
-    db: Client, thread: dict, user: CurrentUser, content: str
+    db: Client, thread: dict, user: CurrentUser, content: str, history: list[dict]
 ) -> AsyncIterator[str]:
     parts: list[str] = []
     ended = False  # set once the stream finished with done/error, i.e. the client didn't stop it
     try:
         events = llm.stream_reply(
-            thread["openai_conversation_id"],
-            content,
-            langsmith_extra={"metadata": {"thread_id": thread["id"], "user_id": user.id}},
+            history,
+            langsmith_extra={
+                "metadata": {
+                    "thread_id": thread["id"],
+                    "user_id": user.id,
+                    "model": get_settings().llm_model,
+                }
+            },
         )
         async for event in events:
             match event["type"]:
@@ -74,8 +81,9 @@ def send_message(
     db.table("messages").insert(
         {"thread_id": thread_id, "role": "user", "content": body.content}
     ).execute()
+    history = load_history(db, thread_id)  # after the insert, so it includes the new user message
     return StreamingResponse(
-        chat_events(db, thread, user, body.content),
+        chat_events(db, thread, user, body.content, history),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
