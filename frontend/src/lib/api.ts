@@ -48,6 +48,9 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     },
   })
   if (!response.ok) {
+    // The token was rejected (revoked or invalid), so drop the local session and
+    // let ProtectedRoute send the user back to /login.
+    if (response.status === 401) await supabase.auth.signOut({ scope: 'local' })
     const body = await response.json().catch(() => null)
     const detail = typeof body?.detail === 'string' ? body.detail : response.statusText
     throw new ApiError(response.status, detail)

@@ -14,3 +14,6 @@ frontend/dist/
 # IDE
 .idea/
 .DS_Store
+
+# Browser test artifacts
+.playwright-mcp/

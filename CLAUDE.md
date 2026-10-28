@@ -50,6 +50,7 @@ Start everything with `./scripts/start-services.sh` (Ctrl-C stops all of it).
 2. **Build** - Execute the plan to implement the feature
 3. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
 4. **Iterate** - Fix any issues found during validation
+5. **Shut down** - When testing of a feature or module is finished, stop every process you started: the `start-services.sh` background task (or any manual uvicorn/vite), and close browser sessions (Playwright / Chrome MCP tabs). Then confirm nothing is left running: `lsof -iTCP:8000 -iTCP:5173 -sTCP:LISTEN` prints nothing, and `pgrep -fl "uvicorn app.main|vite"` finds no leftover processes
 
 ## Progress
 Check PROGRESS.md for current module status. Update it as you complete tasks.

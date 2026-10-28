@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router'
+import { Navigate, useLocation, type Location } from 'react-router'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ type Mode = 'sign-in' | 'sign-up'
 
 export function LoginPage() {
   const { session, loading } = useAuth()
+  const location = useLocation()
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,7 +20,11 @@ export function LoginPage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   if (loading) return null
-  if (session) return <Navigate to="/" replace />
+  if (session) {
+    // Return to the page ProtectedRoute bounced the user from, e.g. a /t/:threadId deep link.
+    const from = (location.state as { from?: Location } | null)?.from
+    return <Navigate to={from ? `${from.pathname}${from.search}${from.hash}` : '/'} replace />
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
