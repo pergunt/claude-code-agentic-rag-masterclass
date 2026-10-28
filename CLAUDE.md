@@ -12,6 +12,8 @@ RAG app with chat (default) and document ingestion interfaces. Config via env va
 ## Services
 Start everything with `./scripts/start-services.sh` (Ctrl-C stops all of it).
 
+If services may already be running (another terminal or another Claude session started them, or you're not sure), use `./scripts/restart-services.sh` instead. It kills every instance of this app's backend/frontend (any port, any session: `start-services.sh`, uvicorn plus its reload workers, npm/vite/esbuild), then starts fresh via `start-services.sh`. It only matches dev-server processes tied to this repo, so editors, shells and Claude sessions are left alone. If 8000/5173 is held by something outside this repo, it reports the PID and exits without killing it.
+
 | Service  | URL                    | Run manually                                                   |
 |----------|------------------------|----------------------------------------------------------------|
 | Backend  | http://localhost:8000  | `cd backend && venv/bin/uvicorn app.main:app --reload --port 8000` |
