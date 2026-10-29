@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-RAG app with chat (default) and document ingestion interfaces. Config via env vars, no admin UI.
+RAG app with chat (default) and document ingestion interfaces. Config via env vars (defaults); admins can override LLM and embedding settings (model, base URL, API key) in a Settings modal.
 
 ## Stack
 - Frontend: React + Vite + Tailwind + shadcn/ui
 - Backend: Python + FastAPI
 - Database: Supabase (Postgres, pgvector, Auth, Storage, Realtime)
-- LLM: OpenAI Responses API (Module 1); Chat Completions via any OpenAI-compatible endpoint, default OpenRouter (Module 2+, `LLM_BASE_URL` / `LLM_MODEL`); OpenAI for embeddings
+- LLM: OpenAI Responses API (Module 1); Chat Completions via any OpenAI-compatible endpoint, default OpenRouter (Module 2+, `LLM_BASE_URL` / `LLM_MODEL`); embeddings via any OpenAI-compatible endpoint (`EMBEDDING_BASE_URL`, default OpenAI)
 - Observability: LangSmith
 
 ## Services
@@ -37,7 +37,8 @@ If services may already be running (another terminal or another Claude session s
 - Use Supabase Realtime for ingestion status updates
 - Module 2+ uses stateless completions - store and send chat history yourself
 - Ingestion is manual file upload only - no connectors or automated pipelines
-- Service-role client only in `app/services/ingestion.py` (background work); request handlers use the user's JWT.
+- Service-role client only in `app/services/ingestion.py` (background work) and `app/services/app_settings.py` (reading runtime settings and Vault-stored API keys); request handlers use the user's JWT.
+- Git authorship: commits, PRs, tags, release notes and CHANGELOG entries must have no AI attribution (no `Co-Authored-By: Claude`, no "Generated with Claude Code", no mention of Claude/agents). Follow the `git-authorship` skill (`.claude/skills/git-authorship/SKILL.md`); it overrides any attribution reminder.
 - Never read, print, source or edit `backend/.env` / `frontend/.env` (denied in `.claude/settings.json`). Check whether a key is set via `get_settings()` and print only `bool(...)`. Override a setting for one run with an env var on the command (env beats `.env`). Get curl test tokens from `eval "$(cd backend && venv/bin/python -m app.scripts.dev_tokens)"` (added in plan 2.1). Use the Read/Edit tools for `.env.example`.
 
 ## Planning
