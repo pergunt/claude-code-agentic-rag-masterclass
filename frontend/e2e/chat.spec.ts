@@ -13,9 +13,9 @@ async function waitIdle(page: Page) {
 }
 
 test.describe('chat', () => {
-  test('UI-01 app header, active nav, no page scroll, composer @smoke', async ({ page, asA, fx }) => {
+  test('UI-01 app sidebar, active nav, no page scroll, composer @smoke', async ({ page, asA, fx }) => {
     await page.goto('/login')
-    await expect(page.locator('header')).toHaveCount(0)
+    await expect(page.locator('aside')).toHaveCount(0)
 
     const thread = (await (await apiCall(fx.a, '/api/threads', {
       method: 'POST',
@@ -23,14 +23,13 @@ test.describe('chat', () => {
       body: '{}',
     })).json()) as { id: string }
 
-    const checkHeader = async (path: string, active: 'Chat' | 'Documents') => {
+    const checkSidebar = async (path: string, active: 'Chat' | 'Documents') => {
       await asA.goto(path)
-      const header = asA.locator('header').first()
+      const header = asA.locator('aside').first()
       await expect(header).toBeVisible()
       await expect(header.getByRole('link', { name: 'Chat' })).toBeVisible()
       await expect(header.getByRole('link', { name: 'Documents' })).toBeVisible()
-      await expect(header.getByText(fx.a.email)).toBeVisible()
-      await expect(header.getByRole('button', { name: 'Sign out' })).toBeVisible()
+      await expect(header.getByRole('button', { name: 'Account menu' })).toContainText(fx.a.email)
       const other = active === 'Chat' ? 'Documents' : 'Chat'
       await expect(header.getByRole('link', { name: active })).toHaveAttribute('aria-current', 'page')
       await expect(header.getByRole('link', { name: other })).not.toHaveAttribute('aria-current', 'page')
@@ -38,11 +37,11 @@ test.describe('chat', () => {
     const noScroll = async () =>
       expect(await asA.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)).toBe(true)
 
-    await checkHeader('/', 'Chat')
+    await checkSidebar('/', 'Chat')
     await noScroll()
     await expect(asA.getByLabel('Message')).toBeVisible()
-    await checkHeader(`/t/${thread.id}`, 'Chat')
-    await checkHeader('/documents', 'Documents')
+    await checkSidebar(`/t/${thread.id}`, 'Chat')
+    await checkSidebar('/documents', 'Documents')
     await expect(asA.getByText('velmora-station.md')).toBeVisible()
     await noScroll()
   })

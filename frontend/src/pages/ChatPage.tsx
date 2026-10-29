@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router'
 
+import { useSidebarSlot } from '@/components/sidebar-slot'
 import { Composer } from '@/components/chat/Composer'
 import type { ChatMessage } from '@/components/chat/MessageBubble'
 import { MessageList } from '@/components/chat/MessageList'
@@ -18,6 +20,7 @@ function isAbort(error: unknown): boolean {
 export function ChatPage() {
   const { threadId } = useParams()
   const navigate = useNavigate()
+  const slot = useSidebarSlot()
 
   const [threads, setThreads] = useState<Thread[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -148,14 +151,18 @@ export function ChatPage() {
 
   return (
     <div className="flex h-full">
-      <ThreadSidebar
-        threads={threads}
-        activeId={threadId}
-        onSelect={(id) => navigate(`/t/${id}`)}
-        onNew={() => navigate('/')}
-        onRename={handleRename}
-        onDelete={handleDelete}
-      />
+      {slot &&
+        createPortal(
+          <ThreadSidebar
+            threads={threads}
+            activeId={threadId}
+            onSelect={(id) => navigate(`/t/${id}`)}
+            onNew={() => navigate('/')}
+            onRename={handleRename}
+            onDelete={handleDelete}
+          />,
+          slot,
+        )}
       <main className="flex min-w-0 flex-1 flex-col">
         <MessageList
           messages={messages}

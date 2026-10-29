@@ -1,6 +1,7 @@
 """Document ingestion: validate helpers plus the background pipeline (download, chunk, embed, store).
 
-This is the only module that uses the service-role client. Request handlers stay on the user's JWT.
+With services/app_settings.py this is the only module that uses the service-role client.
+Request handlers stay on the user's JWT.
 """
 
 import logging
@@ -13,6 +14,7 @@ from langsmith.run_helpers import get_current_run_tree
 
 from app.config import get_settings
 from app.db import create_service_client
+from app.services.app_settings import get_runtime_config
 from app.services.chunking import chunk_text
 from app.services.embeddings import embed_texts
 
@@ -52,8 +54,8 @@ def ingestion_configured() -> str | None:
     settings = get_settings()
     if not settings.supabase_service_role_key:
         return "Ingestion is not configured: SUPABASE_SERVICE_ROLE_KEY is not set"
-    if not settings.openai_api_key:
-        return "Ingestion is not configured: OPENAI_API_KEY is not set"
+    if not get_runtime_config().embedding_api_key:
+        return "Ingestion is not configured: no embedding API key (OPENAI_API_KEY or Settings)"
     return None
 
 
@@ -71,6 +73,7 @@ def _dev_delay() -> None:
 def process_document(document_id: str) -> None:
     """Chunk and embed one uploaded document. Sync: FastAPI runs it in the threadpool."""
     settings = get_settings()
+    cfg = get_runtime_config()  # one config for the whole document, so its chunks share one model
     db = create_service_client()
     rows = db.table("documents").select("*").eq("id", document_id).limit(1).execute().data
     if not rows:  # deleted before processing started
@@ -95,7 +98,7 @@ def process_document(document_id: str) -> None:
         db.table("chunks").delete().eq("document_id", document_id).execute()
         for batch_start in range(0, len(chunks), BATCH_SIZE):
             batch = chunks[batch_start : batch_start + BATCH_SIZE]
-            vectors = embed_texts(batch)
+            vectors = embed_texts(batch, cfg)
             db.table("chunks").insert(
                 [
                     {
@@ -111,7 +114,13 @@ def process_document(document_id: str) -> None:
 
         _dev_delay()
         db.table("documents").update(
-            {"status": "completed", "chunk_count": len(chunks), "error": None, "updated_at": _now()}
+            {
+                "status": "completed",
+                "chunk_count": len(chunks),
+                "embedding_model": cfg.embedding_model,
+                "error": None,
+                "updated_at": _now(),
+            }
         ).eq("id", document_id).execute()
         if run is not None:
             run.metadata["chunk_count"] = len(chunks)

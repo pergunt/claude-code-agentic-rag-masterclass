@@ -5,7 +5,13 @@ Chat runs on the **Chat Completions API** via the raw `openai` SDK against any O
 ## Env vars (backend/.env)
 - `LLM_BASE_URL` (default `https://openrouter.ai/api/v1`), `LLM_API_KEY`, `LLM_MODEL` (default `openai/gpt-4.1-mini`, pick a tool-calling model for 2.3)
 - `CHAT_SYSTEM_PROMPT` (optional, overrides the built-in tool-aware prompt in `services/prompts.py`), `CHAT_HISTORY_MAX_MESSAGES=20`, `CHAT_HISTORY_MAX_CHARS=24000`, `CHAT_MAX_OUTPUT_TOKENS=4096`
-- `OPENAI_API_KEY` is only for embeddings (2.2)
+- `OPENAI_API_KEY` (with `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL`) is only for embeddings (2.2)
+
+## Runtime overrides (plan 2.5)
+- Precedence per field: admin override in `app_settings` (DB) > `.env` > code default. Overridable: LLM base URL/model/key and embedding base URL/model/key. Dimensions (1536), max output tokens and retrieval knobs stay env-only.
+- API keys live in Supabase Vault (`app:llm_api_key`, `app:embedding_api_key`); only the backend decrypts them via `get_app_secrets()` (service_role only). The browser never receives a key.
+- `services/app_settings.get_runtime_config()` caches 30 s per process (`invalidate()` on save); on any error it logs a warning and falls back to the env. Chat/embedding clients are cached per `(base_url, api_key)`.
+- `EMBEDDING_BASE_URL` (default `https://api.openai.com/v1`); the embedding key env stays `OPENAI_API_KEY`. `documents.embedding_model` records which model embedded a document.
 
 ## History window (`app/services/history.py`)
 Newest 20 rows from `messages` → drop oldest until total content ≤ 24,000 chars → drop leading assistant messages. The current user message is always kept. Character budget, not tokens, because the model is provider-agnostic.

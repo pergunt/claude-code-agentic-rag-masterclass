@@ -1,4 +1,4 @@
-"""Fixtures for the validation suite: two dedicated users, wiped and re-seeded on every run.
+"""Fixtures for the validation suite: dedicated users, wiped and re-seeded on every run.
 
 Usage (services must be running; API base from VALIDATION_API_URL, default http://localhost:8000):
     cd backend && venv/bin/python -m app.scripts.validation_fixtures setup
@@ -24,6 +24,8 @@ VAL_B = "rag-test-val-b@example.com"
 # Sign-in/sign-out flows only: signing out revokes the user's sessions server-side, which would
 # invalidate the tokens the other tests hold for A and B.
 VAL_C = "rag-test-val-c@example.com"
+# Promoted to admin out of band (profiles.is_admin has no write policy); no seeded docs.
+VAL_ADMIN = "rag-test-val-admin@example.com"
 
 # backend/app/scripts/validation_fixtures.py -> repo root is parents[3]
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -81,6 +83,17 @@ def seed(token: str, path: Path) -> dict:
     raise TimeoutError(f"seeding {path.name} did not complete in {INGEST_TIMEOUT_SECONDS}s")
 
 
+def reset_admin_settings(token: str) -> None:
+    """Clear every runtime-settings override (a failed earlier run may have left one behind)."""
+    fields = ("llm_base_url", "llm_model", "llm_api_key", "embedding_base_url", "embedding_model", "embedding_api_key")
+    with _client(token) as client:
+        res = client.put("/api/admin/settings", json={name: None for name in fields})
+    if res.status_code == 403:  # val-admin isn't promoted yet; nothing to reset
+        print("validation_fixtures: val-admin is not promoted to admin yet, skipped settings reset", file=sys.stderr)
+    else:
+        res.raise_for_status()
+
+
 def setup() -> dict:
     """Ensure both users exist, wipe their data, seed A and B, and return the env dict."""
     settings = get_settings()
@@ -90,6 +103,10 @@ def setup() -> dict:
         reset_user(token)
         doc = seed(token, path)
         result[key] = {"email": email, "token": token, "id": user_id, "doc_id": doc["id"]}
+    token, user_id = ensure_user(VAL_ADMIN)
+    reset_user(token)
+    result["admin"] = {"email": VAL_ADMIN, "token": token, "id": user_id}
+    reset_admin_settings(token)
     token, user_id = ensure_user(VAL_C)
     reset_user(token)
     result["c"] = {"email": VAL_C, "id": user_id}  # no token: tests sign in through the UI

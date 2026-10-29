@@ -16,6 +16,8 @@ export type Source = {
   similarity: number
 }
 
+export type Me = { id: string; email: string | null; is_admin: boolean }
+
 export type Message = {
   id: string
   thread_id: string
@@ -57,11 +59,47 @@ export type ChatEvent =
 
 export class ApiError extends Error {
   status: number
+  // Per-field messages from a FastAPI 422 (`detail` is a list of {loc, msg}); keyed by the last loc part.
+  fieldErrors: Record<string, string>
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, fieldErrors: Record<string, string> = {}) {
     super(message)
     this.status = status
+    this.fieldErrors = fieldErrors
   }
+}
+
+export type SettingField = { value: string; source: 'app' | 'env'; default: string }
+export type SecretField = { configured: boolean; source: 'app' | 'env'; last4: string | null }
+
+export type AdminSettings = {
+  llm_base_url: SettingField
+  llm_model: SettingField
+  embedding_base_url: SettingField
+  embedding_model: SettingField
+  llm_api_key: SecretField
+  embedding_api_key: SecretField
+  embedding_dimensions: number
+  chunk_count: number
+  embedding_locked: boolean
+}
+
+// Omitted = unchanged, null = reset to the environment default.
+export type AdminSettingsInput = Partial<
+  Record<
+    | 'llm_base_url'
+    | 'llm_model'
+    | 'llm_api_key'
+    | 'embedding_base_url'
+    | 'embedding_model'
+    | 'embedding_api_key',
+    string | null
+  >
+>
+
+export type SettingsTestResult = {
+  chat: { ok: boolean; error?: string; model: string }
+  embeddings: { ok: boolean; error?: string; dimensions?: number }
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -95,6 +133,17 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
     // let ProtectedRoute send the user back to /login.
     if (response.status === 401) await supabase.auth.signOut({ scope: 'local' })
     const body = await response.json().catch(() => null)
+    if (Array.isArray(body?.detail)) {
+      const fieldErrors: Record<string, string> = {}
+      const parts: string[] = []
+      for (const item of body.detail as { loc?: (string | number)[]; msg?: string }[]) {
+        const field = String(item.loc?.[item.loc.length - 1] ?? '')
+        const msg = item.msg ?? 'Invalid value'
+        if (field) fieldErrors[field] = msg
+        parts.push(field ? `${field}: ${msg}` : msg)
+      }
+      throw new ApiError(response.status, parts.join('; ') || response.statusText, fieldErrors)
+    }
     const detail = typeof body?.detail === 'string' ? body.detail : response.statusText
     throw new ApiError(response.status, detail)
   }
@@ -106,7 +155,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  me: () => requestJson<{ id: string; email: string | null }>('/api/me'),
+  me: () => requestJson<Me>('/api/me'),
   listThreads: () => requestJson<Thread[]>('/api/threads'),
   createThread: () => requestJson<Thread>('/api/threads', { method: 'POST', body: '{}' }),
   renameThread: (id: string, title: string) =>
@@ -127,6 +176,17 @@ export const api = {
   deleteDocument: async (id: string) => {
     await request(`/api/documents/${id}`, { method: 'DELETE' })
   },
+  getAdminSettings: () => requestJson<AdminSettings>('/api/admin/settings'),
+  updateAdminSettings: (input: AdminSettingsInput) =>
+    requestJson<AdminSettings>('/api/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  testAdminSettings: (input: AdminSettingsInput) =>
+    requestJson<SettingsTestResult>('/api/admin/settings/test', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 }
 
 /**

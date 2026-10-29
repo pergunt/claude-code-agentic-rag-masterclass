@@ -6,7 +6,7 @@ A RAG application with two interfaces:
 1. **Chat** (default view) - Threaded conversations with retrieval-augmented responses
 2. **Ingestion** - Upload files manually, track processing, manage documents
 
-This is **not** an automated pipeline with connectors. Files are uploaded manually via drag-and-drop. Configuration is via environment variables, no admin UI.
+This is **not** an automated pipeline with connectors. Files are uploaded manually via drag-and-drop. Configuration is via environment variables (the defaults); an admin-only Settings modal can override the LLM and embedding endpoint, model and API keys (plan 2.5).
 
 ## Target Users
 
@@ -44,7 +44,7 @@ Technically-minded people who want to build production RAG systems using AI codi
 - ❌ Billing/payments
 - ❌ Data connectors (Google Drive, SFTP, APIs, webhooks)
 - ❌ Scheduled/automated ingestion
-- ❌ Admin UI (config via env vars)
+- ❌ Admin UI beyond the Settings modal (env vars are the defaults; admins can override LLM/embedding endpoint, model and keys there)
 
 ## Stack
 

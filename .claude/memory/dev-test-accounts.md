@@ -6,6 +6,8 @@ Test users in the dev Supabase project (created 2026-10-28). All use the passwor
 - `rag-test-d@example.com`: created through the sign-up form during the Module 1 regression pass (2026-10-28)
 - `rag-test-val-a@example.com`, `rag-test-val-b@example.com` and `rag-test-val-c@example.com` (sign-in/sign-out flows only; a sign-out revokes the user's sessions server-side, so it can't share an account with token-holding tests): owned by the validation suite (`scripts/validate.sh`, plan 2.4). Their threads and documents are wiped and re-seeded on every run; don't use them for manual testing
 
+- `rag-test-val-admin@example.com` (plan 2.5): the suite's admin (`profiles.is_admin = true`, promoted by hand in SQL on 2026-10-28). Created by the fixtures setup, which also resets all admin settings overrides to null on every run. Don't use it for manual testing. To give another account Settings access: `update public.profiles set is_admin = true where email = '…';`
+
 Email confirmation is disabled in the dev project, so any new `rag-test-<x>@example.com` + `TestPass123!` signs up instantly. Signing up an existing email returns "User already registered", so use sign-in for the accounts above.
 
 - Use these for browser auth testing (Playwright / Chrome MCP) and API token tests. Don't invent other credentials.

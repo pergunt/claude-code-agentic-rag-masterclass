@@ -63,3 +63,65 @@ def test_ING_07_sweep_skipped_without_service_key(monkeypatch):
     monkeypatch.setattr(ingestion, "create_service_client", lambda: created.append(1))
     ingestion.fail_interrupted_documents()
     assert created == []
+
+
+class DocDB:
+    """Minimal supabase stand-in for process_document: records documents.update payloads."""
+
+    def __init__(self):
+        self.doc_updates = []
+        self.storage = self
+        self._table = None
+        self._payload = None
+
+    def from_(self, _bucket):
+        return self
+
+    def download(self, _path):
+        return b"hello world"
+
+    def table(self, name):
+        self._table, self._payload, self._mode = name, None, "select"
+        return self
+
+    def select(self, *_):
+        return self
+
+    def update(self, payload):
+        self._mode, self._payload = "update", payload
+        return self
+
+    def insert(self, _rows):
+        self._mode = "insert"
+        return self
+
+    def delete(self):
+        self._mode = "delete"
+        return self
+
+    def eq(self, *_):
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def execute(self):
+        if self._mode == "update" and self._table == "documents":
+            self.doc_updates.append(self._payload)
+        if self._mode == "select":
+            self.data = [{"id": "d1", "user_id": "u1", "storage_path": "u1/d1/x.md"}]
+        return self
+
+
+def test_ADM_08_process_document_records_embedding_model(monkeypatch):
+    db = DocDB()
+    cfg = SimpleNamespace(embedding_model="text-embedding-3-large")
+    monkeypatch.setattr(ingestion, "get_settings", lambda: SimpleNamespace(chunk_size=500, chunk_overlap=50))
+    monkeypatch.setattr(ingestion, "get_runtime_config", lambda: cfg)
+    monkeypatch.setattr(ingestion, "create_service_client", lambda: db)
+    monkeypatch.setattr(ingestion, "embed_texts", lambda texts, c: [[0.0] for _ in texts])
+    monkeypatch.setattr(ingestion, "_dev_delay", lambda: None)
+    ingestion.process_document("d1")
+    final = db.doc_updates[-1]
+    assert final["status"] == "completed"
+    assert final["embedding_model"] == "text-embedding-3-large"

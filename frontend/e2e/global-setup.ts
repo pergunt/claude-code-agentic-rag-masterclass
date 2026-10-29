@@ -15,12 +15,12 @@ export default async function globalSetup(_config: FullConfig) {
   )
   // Take the last non-empty line in case something logs before the JSON.
   const line = out.trim().split('\n').filter(Boolean).at(-1) ?? '{}'
-  const fx = JSON.parse(line) as { a: { email: string }; b: { email: string } }
+  const fx = JSON.parse(line) as { a: { email: string }; b: { email: string }; admin: { email: string } }
   fs.writeFileSync(fixturesFile, JSON.stringify(fx, null, 2))
 
   const browser = await chromium.launch()
   try {
-    for (const key of ['a', 'b'] as const) {
+    for (const key of ['a', 'b', 'admin'] as const) {
       const context = await browser.newContext()
       const page = await context.newPage()
       await page.goto(`${APP_URL}/login`)

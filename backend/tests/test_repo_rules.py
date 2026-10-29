@@ -49,10 +49,14 @@ def test_STA_04_no_langchain_or_langgraph():
 
 
 def test_STA_04_service_client_only_in_ingestion():
-    allowed = {"backend/app/services/ingestion.py", "backend/app/db.py"}
+    allowed = {
+        "backend/app/services/ingestion.py",
+        "backend/app/services/app_settings.py",
+        "backend/app/db.py",
+    }
     files = [p for p in tracked_and_new() if p.startswith("backend/app/") and p.endswith(".py")]
     hits = [h for h in scan(files, r"create_service_client\(") if h.split(":")[0] not in allowed]
-    assert not hits, "create_service_client( used outside ingestion/db:\n" + "\n".join(hits)
+    assert not hits, "create_service_client( used outside ingestion/app_settings/db:\n" + "\n".join(hits)
 
 
 def test_STA_04_no_tracked_env_files():

@@ -14,18 +14,19 @@ test.describe('auth', () => {
 
     await signIn(page, SPARE_USER)
     await expect(page).toHaveURL(/localhost:5173\/$/)
-    await expect(page.locator('header').getByText(SPARE_USER)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Account menu' })).toContainText(SPARE_USER)
   })
 
   test('AUTH-04 session persists on reload; sign out returns to /login @smoke', async ({ page }) => {
     await page.goto('/login')
     await signIn(page, SPARE_USER)
-    await expect(page.locator('header').getByText(SPARE_USER)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Account menu' })).toContainText(SPARE_USER)
     await page.reload()
     await expect(page).toHaveURL(/localhost:5173\/$/)
-    await expect(page.locator('header').getByText(SPARE_USER)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Account menu' })).toContainText(SPARE_USER)
 
-    await page.getByRole('button', { name: 'Sign out' }).click()
+    await page.getByRole('button', { name: 'Account menu' }).click()
+    await page.getByRole('menuitem', { name: 'Sign out' }).click()
     await expect(page).toHaveURL(/\/login$/)
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
@@ -44,7 +45,7 @@ test.describe('auth', () => {
     // session rather than the storage state shared with the other specs.
     await page.goto('/login')
     await signIn(page, SPARE_USER)
-    await expect(page.locator('header').getByText(SPARE_USER)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Account menu' })).toContainText(SPARE_USER)
     await page.route('**/api/threads', (r) =>
       r.fulfill({
         status: 401,

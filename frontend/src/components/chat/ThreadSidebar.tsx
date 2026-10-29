@@ -40,7 +40,7 @@ export function ThreadSidebar({
   }
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/30">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="p-3">
         <Button variant="outline" className="w-full justify-start" onClick={onNew}>
           <SquarePen /> New chat
@@ -111,6 +111,6 @@ export function ThreadSidebar({
           )}
         </nav>
       </ScrollArea>
-    </aside>
+    </div>
   )
 }

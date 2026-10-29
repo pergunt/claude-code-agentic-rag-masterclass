@@ -16,7 +16,7 @@ def pytest_collection_modifyitems(items):
 @pytest.fixture(scope="session")
 def env() -> dict:
     """Setup dict from validation_fixtures.setup(): keys `api`, `supabase_url`, `anon_key`,
-    `a` and `b` (each a dict with `email`, `token`, `id`, `doc_id`). Use dict access."""
+    `a`, `b` and `admin` (each a dict with `email`, `token`, `id`, `doc_id`). Use dict access."""
     api = validation_fixtures.api_url()
     try:
         httpx.get(f"{api}/health", timeout=5).raise_for_status()
@@ -42,6 +42,12 @@ def a(env):
 def b(env):
     """httpx.Client for the backend API as val-b."""
     yield from _api_client(env, "b")
+
+
+@pytest.fixture(scope="session")
+def admin(env):
+    """httpx.Client for the backend API as val-admin (is_admin promoted out of band)."""
+    yield from _api_client(env, "admin")
 
 
 @pytest.fixture(scope="session")

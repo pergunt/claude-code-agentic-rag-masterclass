@@ -4,6 +4,7 @@ from types import SimpleNamespace as NS
 import pytest
 
 from app.services import llm, tools
+from app.services.app_settings import RuntimeConfig
 from app.services.retrieval import ChunkHit
 from app.services.tools import ToolContext
 
@@ -70,15 +71,25 @@ def fake_search(monkeypatch):
 
 
 def use_client(monkeypatch, client: FakeClient) -> None:
-    monkeypatch.setattr(llm, "get_chat_client", lambda: client)
+    monkeypatch.setattr(llm, "get_chat_client", lambda base_url, api_key: client)
 
 
 CTX = ToolContext(db=None, user_id="u1")
+CFG = RuntimeConfig(
+    llm_base_url="https://example.test/v1",
+    llm_api_key="k",
+    llm_model="test/model",
+    embedding_base_url="https://example.test/v1",
+    embedding_api_key="k",
+    embedding_model="emb",
+    embedding_dimensions=1536,
+    sources={},
+)
 HISTORY = [{"role": "user", "content": "What is the backup call sign?"}]
 
 
 async def collect(ctx=CTX):
-    return [e async for e in llm.stream_reply(HISTORY, ctx)]
+    return [e async for e in llm.stream_reply(HISTORY, ctx, CFG)]
 
 
 def test_RET_07_cited_sources_keeps_only_mentioned_files_deduped():

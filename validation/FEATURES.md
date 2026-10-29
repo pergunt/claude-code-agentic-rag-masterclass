@@ -23,7 +23,7 @@ Statuses: `PASS`, `PASS (flaky)`, `FAIL`, `SKIP`, `NOT RUN`, `UNCOVERED` (catalo
 | STA-01 | Backend unit tests | 2.4 | unit | `pytest -m "not live"` exits 0 (tool calls, tools, agent loop, history, chunker, decode, sweep, repo rules) |
 | STA-02 | Frontend types/build | 2.4 | unit | `npx tsc -b` exits 0. Full tier only: `npm run build` exits 0 |
 | STA-03 | Lint | 2.4 | unit | `npm run lint`: 0 errors, warnings ≤ `validation/lint-baseline.txt` (5) |
-| STA-04 | Repo rules (CLAUDE.md) | 2.4 | unit | No Responses/Conversations remnants (`conversations\.`, `responses\.create`, `file_search`, `openai_conversation_id`); no `langchain`/`langgraph` in `requirements.txt` or `package.json`; `create_service_client(` called only in `services/ingestion.py`; no tracked `.env` files (`git ls-files`); every `create table public.X` in `supabase/migrations/*.sql` has a matching `enable row level security` |
+| STA-04 | Repo rules (CLAUDE.md) | 2.4 | unit | No Responses/Conversations remnants (`conversations\.`, `responses\.create`, `file_search`, `openai_conversation_id`); no `langchain`/`langgraph` in `requirements.txt` or `package.json`; `create_service_client(` called only in `services/ingestion.py`, `services/app_settings.py` and `db.py`; no tracked `.env` files (`git ls-files`); every `create table public.X` in `supabase/migrations/*.sql` has a matching `enable row level security` |
 
 ## Auth (1.1)
 
@@ -96,7 +96,24 @@ Statuses: `PASS`, `PASS (flaky)`, `FAIL`, `SKIP`, `NOT RUN`, `UNCOVERED` (catalo
 
 | ID | Feature | Source | Tier | Acceptance criteria |
 |---|---|---|---|---|
-| UI-01 | App header | 2.2.1 | e2e, smoke | `/login` has no header. `/`, `/t/<id>` and `/documents` show the Chat/Documents nav, email and Sign out, with the right nav active. `scrollHeight <= innerHeight` on `/` and `/documents`. The composer is visible |
+| UI-01 | App sidebar | 2.2.1, 2.5.1 | e2e, smoke | `/login` has no sidebar. `/`, `/t/<id>` and `/documents` show the left sidebar with the Chat/Documents nav (right one active) and the account menu button (containing the email). `scrollHeight <= innerHeight` on `/` and `/documents`. The composer is visible |
+| UI-02 | Account menu | 2.5.1 | e2e, smoke | Initials button at the bottom-left of the sidebar on `/` and `/documents`; its menu shows the email and Sign out. Settings is absent for a non-admin (val-a) and present for an admin (val-admin), opening a dialog titled "Settings". Sign out returns to `/login` |
+| UI-03 | Settings dialog | 2.5.3 | e2e | Settings is hidden for val-a. As val-admin the dialog shows the sections "LLM configuration" and "Embedding configuration" with source badges. Both API key inputs have `type="password"` and an empty value; Dimensions is disabled and shows 1536. A successful Save closes the dialog; a rejected Save (e.g. an `ftp://` base URL) keeps it open with the field error. Setting the LLM model name to its current effective value and saving persists after reload with the `App` badge; Reset to default shows the `Default` badge. A key field never shows more than `•••• last4`. All settings are reset afterwards. With the suite's seeded chunks, Embedding model name and Embedding base URL are disabled with a lock notice that gives the chunk count and explains why (vectors from another model can't be compared with the stored ones); the Embedding API key input stays enabled |
+| UI-04 | Test connection | 2.5.3 | e2e | Test connection in the Settings dialog shows a success mark for both chat and embeddings with the effective config |
+
+## Admin (2.5)
+
+| ID | Feature | Source | Tier | Acceptance criteria |
+|---|---|---|---|---|
+| ADM-01 | Profiles RLS | 2.5.1 | live | A user reads only their own `profiles` row. A REST PATCH setting `is_admin=true` on their own row changes nothing (no rows returned; re-read is still false). Anon select returns `[]` |
+| ADM-02 | `/api/me.is_admin` | 2.5.1 | live | `GET /api/me` returns `is_admin` false for val-a and true for val-admin |
+| ADM-03 | Admin-only settings API | 2.5.2 | live | val-a gets 403 on every `/api/admin/*` route (GET/PUT settings, POST settings/test). val-a REST `app_settings` returns `[]`; val-a `rpc set_app_secret` errors; any JWT (user or admin) calling `rpc get_app_secrets` gets `42501` |
+| ADM-04 | Secrets never leave the server | 2.5.2 | live | After val-admin PUTs a dummy `embedding_api_key`, GET shows `{configured: true, source: "app", last4}` with the matching last 4 characters, and no response body contains the full key. Resetting to `null` returns the source to `env` |
+| ADM-05 | Override, reset and validation | 2.5.2 | live, llm | PUT `llm_model` and `embedding_base_url` set to their current effective values: GET shows them with source `app`, and a RET-style chat as val-a still streams and cites. PUT `null` for both returns the env values with source `env`. PUT with `embedding_dimensions` is 422 (`extra="forbid"`); an `http://` non-localhost URL, a model with whitespace, or a key outside 10-400 chars / with whitespace is 422 (also covered in-process, unit) |
+| ADM-06 | Bad model surfaces cleanly | 2.5.2 | live, llm | PUT `llm_model="nonexistent/model"`: a chat turn ends with an `error` SSE event, not a traceback. After reset to `null`, chat works again |
+| ADM-07 | Test connection | 2.5.2 | live, llm | POST `/api/admin/settings/test` with `{}` gives `chat.ok` true and `embeddings.ok` true with `dimensions` 1536. A bogus `llm_api_key` in the body gives `chat.ok` false with an error that does not contain the key. Nothing is saved (GET unchanged) |
+| ADM-08 | Embedding settings lock | 2.5.2 | unit, live | `process_document` writes the effective `embedding_model` on completion (unit). Admin GET returns `chunk_count` (int) and `embedding_locked` (= chunk_count > 0). While chunks exist, PUT changing `embedding_model` or `embedding_base_url` (null resolves to the env default) to a different effective value returns 409 `Embedding settings are locked: N chunks exist. Delete all documents to change the embedding model.` and writes nothing; same-value submissions and `embedding_api_key` changes are allowed; with 0 chunks changes are allowed; `/settings/test` is unrestricted. Live: with the suite's seeded chunks, GET shows locked, a model change and a base-URL change are 409 with settings unchanged, and PUT of both current values is 200 |
+| ADM-09 | Runtime config precedence + env fallback | 2.5.2 | unit | get_runtime_config() merges admin overrides (app_settings + Vault secrets) over the env: a non-empty override wins with source "app"; null/empty stays on the env default with source "env". If the service client or Supabase fails it logs a warning and falls back to all-env values without raising. Cached 30 s; invalidate() clears it. API key values never appear in the RuntimeConfig repr or in logs. |
 
 ## Observability (1.3, 2.2, 2.3)
 

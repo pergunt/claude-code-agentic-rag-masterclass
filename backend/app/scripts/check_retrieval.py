@@ -12,6 +12,7 @@ import anyio
 from app.config import get_settings
 from app.db import create_anon_client, create_user_client
 from app.scripts.dev_tokens import sign_in
+from app.services.app_settings import get_runtime_config
 from app.services.embeddings import embed_query
 from app.services.retrieval import search_chunks
 
@@ -24,6 +25,7 @@ async def main() -> None:
     parser.add_argument("--top-k", type=int, default=10)
     args = parser.parse_args()
 
+    print(f"embedding model: {get_runtime_config().embedding_model}")
     print(f"query: {args.query!r}  threshold: {args.threshold}  top_k: {args.top_k}")
     for email in args.emails:
         token, _ = sign_in(email)

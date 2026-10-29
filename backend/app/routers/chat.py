@@ -9,11 +9,11 @@ from fastapi.responses import StreamingResponse
 from supabase import Client
 
 from app.auth import CurrentUser, get_current_user
-from app.config import get_settings
 from app.db import create_user_client
 from app.routers.threads import fetch_thread
 from app.schemas import DEFAULT_THREAD_TITLE, ChatRequest
 from app.services import llm
+from app.services.app_settings import RuntimeConfig, get_runtime_config
 from app.services.history import load_history
 from app.services.tools import ToolContext
 
@@ -42,7 +42,12 @@ def save_reply(
 
 
 async def chat_events(
-    db: Client, thread: dict, user: CurrentUser, content: str, history: list[dict]
+    db: Client,
+    thread: dict,
+    user: CurrentUser,
+    content: str,
+    history: list[dict],
+    cfg: RuntimeConfig,
 ) -> AsyncIterator[str]:
     parts: list[str] = []
     sources: list[dict] = []  # from completed search_documents calls
@@ -51,11 +56,12 @@ async def chat_events(
         events = llm.stream_reply(
             history,
             ToolContext(db=db, user_id=user.id),  # user-JWT client, so searches run under RLS
+            cfg,
             langsmith_extra={
                 "metadata": {
                     "thread_id": thread["id"],
                     "user_id": user.id,
-                    "model": get_settings().llm_model,
+                    "model": cfg.llm_model,
                 }
             },
         )
@@ -98,9 +104,10 @@ def send_message(
     db.table("messages").insert(
         {"thread_id": thread_id, "role": "user", "content": body.content}
     ).execute()
+    cfg = get_runtime_config()  # once per request, so one turn never mixes two configs
     history = load_history(db, thread_id)  # after the insert, so it includes the new user message
     return StreamingResponse(
-        chat_events(db, thread, user, body.content, history),
+        chat_events(db, thread, user, body.content, history, cfg),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""  # background ingestion only (app/services/ingestion.py)
 
     openai_api_key: str = ""  # embeddings (2.2); chat uses LLM_*
+    embedding_base_url: str = "https://api.openai.com/v1"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536  # must match vector(1536) in the chunks table
 

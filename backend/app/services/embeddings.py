@@ -5,18 +5,18 @@ from langsmith import traceable
 from langsmith.wrappers import wrap_openai
 from openai import OpenAI
 
-from app.config import get_settings
+from app.services.app_settings import RuntimeConfig, get_runtime_config
 
 BATCH_SIZE = 100
 
 
-@lru_cache
-def get_client() -> OpenAI:
-    # Separate from llm.py on purpose: chat may point at OpenRouter, embeddings always use OpenAI.
-    settings = get_settings()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-    return wrap_openai(OpenAI(api_key=settings.openai_api_key))
+@lru_cache(maxsize=8)
+def get_client(base_url: str, api_key: str) -> OpenAI:
+    # Separate from llm.py on purpose: chat and embeddings can use different providers.
+    # Cached per (base_url, api_key) so an admin change takes effect without a restart.
+    if not api_key:
+        raise RuntimeError("Embedding API key is not set (OPENAI_API_KEY)")
+    return wrap_openai(OpenAI(base_url=base_url, api_key=api_key))
 
 
 def _summarize_vectors(vectors: list[list[float]]) -> dict:
@@ -26,22 +26,25 @@ def _summarize_vectors(vectors: list[list[float]]) -> dict:
 
 # wrap_openai doesn't trace embeddings.create, so trace the call here.
 @traceable(name="embed_texts", run_type="embedding", process_outputs=_summarize_vectors)
-def embed_texts(texts: list[str]) -> list[list[float]]:
-    """Embed texts in batches of 100, returning vectors in input order."""
-    settings = get_settings()
+def embed_texts(texts: list[str], cfg: RuntimeConfig | None = None) -> list[list[float]]:
+    """Embed texts in batches of 100, returning vectors in input order.
+
+    cfg defaults to the runtime config; pass one to try unsaved values (admin "Test connection").
+    """
+    cfg = cfg or get_runtime_config()
     vectors: list[list[float]] = []
     for batch in batched(texts, BATCH_SIZE):
-        response = get_client().embeddings.create(
-            model=settings.embedding_model,
+        response = get_client(cfg.embedding_base_url, cfg.embedding_api_key).embeddings.create(
+            model=cfg.embedding_model,
             input=list(batch),
-            dimensions=settings.embedding_dimensions,
+            dimensions=cfg.embedding_dimensions,
         )
         for item in sorted(response.data, key=lambda d: d.index):
-            assert len(item.embedding) == settings.embedding_dimensions, "unexpected embedding size"
+            assert len(item.embedding) == cfg.embedding_dimensions, "unexpected embedding size"
             vectors.append(item.embedding)
     return vectors
 
 
-def embed_query(text: str) -> list[float]:
+def embed_query(text: str, cfg: RuntimeConfig | None = None) -> list[float]:
     """Embed one search query with the same model and dimensions as the stored chunks (sync)."""
-    return embed_texts([text])[0]
+    return embed_texts([text], cfg)[0]

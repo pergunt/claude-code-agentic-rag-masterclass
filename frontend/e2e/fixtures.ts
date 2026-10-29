@@ -4,7 +4,7 @@ import { test as base, expect, type Page } from '@playwright/test'
 import { APP_URL, PASSWORD, authFile, fixturesFile } from './paths'
 
 export type FxUser = { email: string; token: string; id: string; doc_id: string }
-export type Fx = { api: string; supabase_url: string; anon_key: string; a: FxUser; b: FxUser }
+export type Fx = { api: string; supabase_url: string; anon_key: string; a: FxUser; b: FxUser; admin: FxUser }
 
 export const API = 'http://localhost:8000'
 export { PASSWORD, APP_URL }
@@ -42,7 +42,7 @@ export async function waitDocStatus(user: FxUser, id: string, status = 'complete
 }
 
 async function cleanup(fx: Fx) {
-  for (const user of [fx.a, fx.b]) {
+  for (const user of [fx.a, fx.b, fx.admin]) {
     for (const t of (await (await apiCall(user, '/api/threads')).json()) as { id: string }[]) {
       await apiCall(user, `/api/threads/${t.id}`, { method: 'DELETE' })
     }
@@ -62,6 +62,7 @@ type Fixtures = {
   fx: Fx
   asA: Page
   asB: Page
+  asAdmin: Page
   consoleGuard: void
 }
 
@@ -104,6 +105,14 @@ export const test = base.extend<Fixtures>({
   asB: async ({ browser, consoleGuard }, provide) => {
     void consoleGuard
     const ctx = await browser.newContext({ storageState: authFile('b') })
+    const page = await ctx.newPage()
+    watch0?.(page)
+    await provide(page)
+    await ctx.close()
+  },
+  asAdmin: async ({ browser, consoleGuard }, provide) => {
+    void consoleGuard
+    const ctx = await browser.newContext({ storageState: authFile('admin') })
     const page = await ctx.newPage()
     watch0?.(page)
     await provide(page)

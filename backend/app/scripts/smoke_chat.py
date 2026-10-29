@@ -9,10 +9,10 @@ Usage: venv/bin/python -m app.scripts.smoke_chat "question"
 import asyncio
 import sys
 
-from app.config import get_settings
 from app.db import create_user_client
 from app.scripts.dev_tokens import sign_in
 from app.services import llm
+from app.services.app_settings import get_runtime_config
 from app.services.tools import ToolContext
 
 MEMORY_HISTORY = [
@@ -34,9 +34,9 @@ async def main() -> None:
     else:
         question = " ".join(args) or "What documents do you have access to?"
         history = [{"role": "user", "content": question}]
-    settings = get_settings()
-    print(f"base_url: {settings.llm_base_url}\nmodel: {settings.llm_model}\n")
-    async for event in llm.stream_reply(history, ctx):
+    cfg = get_runtime_config()
+    print(f"base_url: {cfg.llm_base_url}\nmodel: {cfg.llm_model}\n")
+    async for event in llm.stream_reply(history, ctx, cfg):
         match event["type"]:
             case "delta":
                 print(event["delta"], end="", flush=True)

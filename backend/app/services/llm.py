@@ -10,6 +10,7 @@ from langsmith.wrappers import wrap_openai
 from openai import AsyncOpenAI
 
 from app.config import get_settings
+from app.services.app_settings import RuntimeConfig, get_runtime_config
 from app.services.prompts import DEFAULT_SYSTEM_PROMPT
 from app.services.tool_calls import ToolCallAccumulator
 from app.services.tools import TOOL_SCHEMAS, ToolContext, execute_tool
@@ -18,14 +19,14 @@ ChatEvent = dict[str, Any]  # public SSE events: delta / tool / done / error
 ChatMessage = dict[str, Any]  # OpenAI chat message param: {"role", "content", ...}
 
 
-@lru_cache
-def get_chat_client() -> AsyncOpenAI:
+@lru_cache(maxsize=8)
+def get_chat_client(base_url: str, api_key: str) -> AsyncOpenAI:
+    # Cached per (base_url, api_key) so an admin change takes effect without a restart.
     # wrap_openai traces each call to LangSmith; it's a no-op unless LANGSMITH_TRACING is set.
     # Async so a client disconnect cancels the provider stream right away.
-    settings = get_settings()
-    if not settings.llm_api_key:
-        raise RuntimeError("LLM_API_KEY is not set")
-    return wrap_openai(AsyncOpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key))
+    if not api_key:
+        raise RuntimeError("LLM API key is not set")
+    return wrap_openai(AsyncOpenAI(base_url=base_url, api_key=api_key))
 
 
 def build_messages(history: list[ChatMessage]) -> list[ChatMessage]:
@@ -61,6 +62,7 @@ def _query_of(raw_args: str) -> str | None:
 
 
 async def stream_completion(
+    cfg: RuntimeConfig,
     messages: list[ChatMessage],
     tools: list[dict] | None = None,
     tool_choice: str | None = None,
@@ -72,11 +74,11 @@ async def stream_completion(
     """
     settings = get_settings()
     extra: dict[str, Any] = {}
-    if "openrouter.ai" in settings.llm_base_url:
+    if "openrouter.ai" in cfg.llm_base_url:
         # Route only to providers that honour tools/tool_choice instead of silently dropping them.
         extra["extra_body"] = {"provider": {"require_parameters": True}}
-    stream = await get_chat_client().chat.completions.create(
-        model=settings.llm_model,
+    stream = await get_chat_client(cfg.llm_base_url, cfg.llm_api_key).chat.completions.create(
+        model=cfg.llm_model,
         messages=messages,
         tools=tools or openai.omit,
         tool_choice=tool_choice if tools and tool_choice else openai.omit,
@@ -110,7 +112,7 @@ async def stream_completion(
 
 @traceable(name="chat_turn", run_type="chain", reduce_fn=_final_event)
 async def stream_reply(
-    history: list[ChatMessage], ctx: ToolContext | None = None
+    history: list[ChatMessage], ctx: ToolContext | None = None, cfg: RuntimeConfig | None = None
 ) -> AsyncIterator[ChatEvent]:
     """Stream a reply to the stored chat history as normalized events.
 
@@ -120,6 +122,7 @@ async def stream_reply(
     last call with tool_choice="none" forces the answer. Cancelling the consumer (client
     disconnect) closes the provider stream.
     """
+    cfg = cfg or get_runtime_config()
     messages = build_messages(history)
     max_rounds = get_settings().agent_max_tool_rounds
     text_parts: list[str] = []
@@ -133,6 +136,7 @@ async def stream_reply(
             # tool messages when no tools are declared.
             async with contextlib.aclosing(
                 stream_completion(
+                    cfg,
                     messages,
                     tools=TOOL_SCHEMAS if ctx else None,
                     tool_choice="none" if final else "auto",

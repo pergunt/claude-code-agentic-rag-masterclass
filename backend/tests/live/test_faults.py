@@ -29,7 +29,7 @@ def asgi(env: dict) -> httpx.AsyncClient:
 
 @pytest.mark.anyio
 async def test_CHAT_04_provider_error(env, monkeypatch):
-    def boom():
+    def boom(*args, **kwargs):
         raise RuntimeError("injected LLM failure")
 
     monkeypatch.setattr(llm, "get_chat_client", boom)
@@ -51,7 +51,7 @@ async def test_CHAT_04_provider_error(env, monkeypatch):
 
 @pytest.mark.anyio
 async def test_ING_06_embedding_failure(env, monkeypatch):
-    def boom(texts):
+    def boom(texts, cfg=None):
         raise RuntimeError("injected embedding failure")
 
     monkeypatch.setattr(ingestion, "embed_texts", boom)
